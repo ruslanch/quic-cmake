@@ -9,6 +9,24 @@ set(NSS_DIST ${NSS_PREFIX}/src/dist)
 set(NSS_SOURCE ${NSS_PREFIX}/src/nss)
 set(NSPR_SOURCE ${NSS_PREFIX}/src/nspr)
 
+set(_NSS_STATIC_LIBRARIES
+  libpk11wrap.a
+  libcertdb.a
+  libnsspki.a
+  libnss_static.a
+  libnssutil.a
+  libcryptohi.a
+  libnssdev.a
+  libcerthi.a
+  libnssb.a
+)
+
+set(_NSPR_STATIC_LIBRARIES
+  libplc4.a
+  libplds4.a
+  libnspr4.a
+)
+
 if(CMAKE_BUILD_TYPE EQUAL Release)
   set(NSS_EXTRA_BUILDFLAGS -o)
   set(NSS_INCLUDE_DIRS
@@ -16,21 +34,9 @@ if(CMAKE_BUILD_TYPE EQUAL Release)
     ${NSS_DIST}/public/nss
     ${NSS_DIST}/public/dbm
   )
-  set(NSS_STATIC_LIBRARIES
-    ${NSS_PREFIX}/src/nss/out/Release/libnss_static.a
-    ${NSS_PREFIX}/src/nss/out/Release/libnssutil.a
-    ${NSS_PREFIX}/src/nss/out/Release/libcertdb.a
-    ${NSS_PREFIX}/src/nss/out/Release/libpk11wrap.a
-    ${NSS_PREFIX}/src/nss/out/Release/libnsspki.a
-    ${NSS_PREFIX}/src/nss/out/Release/libnssutil.a
-    ${NSS_PREFIX}/src/nss/out/Release/libcryptohi.a
-    ${NSS_PREFIX}/src/nss/out/Release/libnssdev.a
-    ${NSS_PREFIX}/src/nss/out/Release/libcerthi.a
-    ${NSS_PREFIX}/src/nss/out/Release/libnssb.a
-    ${NSS_PREFIX}/src/dist/Release/lib/libnspr4.a
-    ${NSS_PREFIX}/src/dist/Release/lib/libplc4.a
-    ${NSS_PREFIX}/src/dist/Release/lib/libplds4.a
-  )
+
+  LIST_PREFIX(_NSS_STATIC_LIBRARIES  "${NSS_PREFIX}/src/nss/out/Release"  ${_NSS_STATIC_LIBRARIES})
+  LIST_PREFIX(_NSPR_STATIC_LIBRARIES "${NSS_PREFIX}/src/dist/Release/lib" ${_NSPR_STATIC_LIBRARIES})
 else()
   set(NSS_EXTRA_BUILDFLAGS)
   set(NSS_INCLUDE_DIRS
@@ -38,22 +44,12 @@ else()
     ${NSS_DIST}/public/nss
     ${NSS_DIST}/public/dbm
   )
-  set(NSS_STATIC_LIBRARIES
-    ${NSS_PREFIX}/src/nss/out/Debug/libnss_static.a
-    ${NSS_PREFIX}/src/nss/out/Debug/libnssutil.a
-    ${NSS_PREFIX}/src/nss/out/Debug/libcertdb.a
-    ${NSS_PREFIX}/src/nss/out/Debug/libpk11wrap.a
-    ${NSS_PREFIX}/src/nss/out/Debug/libnsspki.a
-    ${NSS_PREFIX}/src/nss/out/Debug/libnssutil.a
-    ${NSS_PREFIX}/src/nss/out/Debug/libcryptohi.a
-    ${NSS_PREFIX}/src/nss/out/Debug/libnssdev.a
-    ${NSS_PREFIX}/src/nss/out/Debug/libcerthi.a
-    ${NSS_PREFIX}/src/nss/out/Debug/libnssb.a
-    ${NSS_PREFIX}/src/dist/Debug/lib/libnspr4.a
-    ${NSS_PREFIX}/src/dist/Debug/lib/libplc4.a
-    ${NSS_PREFIX}/src/dist/Debug/lib/libplds4.a
-  )
+
+  LIST_PREFIX(_NSS_STATIC_LIBRARIES  "${NSS_PREFIX}/src/nss/out/Debug"  ${_NSS_STATIC_LIBRARIES})
+  LIST_PREFIX(_NSPR_STATIC_LIBRARIES "${NSS_PREFIX}/src/dist/Debug/lib" ${_NSPR_STATIC_LIBRARIES})
 endif()
+
+set(NSS_STATIC_LIBRARIES ${_NSS_STATIC_LIBRARIES} ${_NSPR_STATIC_LIBRARIES})
 
 CHECK_ALL_EXISTS(NSS_FOUND ${NSS_STATIC_LIBRARIES} ${NSS_INCLUDE_DIRS})
 

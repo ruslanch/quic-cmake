@@ -27,8 +27,6 @@ CHECK_ALL_EXISTS(GTEST_FOUND
   "${QUIC_EXTRA_INC_THIRD_PARTY_GTEST_DIR}/gtest"
 )
 
-message(STATUS "AAA ${GTEST_FOUND}")
-
 if(NOT GTEST_FOUND)
   set(GTEST_URL https://github.com/google/googletest.git)
   set(GTEST_TAG ec44c6c1675c25b9827aacd08c02433cccde7780)
