@@ -22,7 +22,7 @@ CHECK_ALL_EXISTS(BORINGSSL_FOUND
 
 if(NOT BORINGSSL_FOUND)
   set(BORINGSSL_URL https://boringssl.googlesource.com/boringssl)
-  set(BORINGSSL_TAG 702e2b6d3831486535e958f262a05c75a5cb312e)
+  set(BORINGSSL_TAG 9113e0996fd445ce187ae9dfeabfc95805b947a2)
 
   ExternalProject_Add(boringssl_external
       PREFIX "${BORINGSSL_PREFIX}"

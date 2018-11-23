@@ -16,13 +16,15 @@ include(cmake/external/boringssl.cmake)
 include(cmake/external/gtest.cmake)
 include(cmake/external/protobuf.cmake)
 include(cmake/external/libevent.cmake)
+include(cmake/external/brotli.cmake)
 include(cmake/external/icu.cmake)
-include(cmake/utils.cmake)
 
 include_directories(${ZLIB_INCLUDE_DIR})
 include_directories(${BORINGSSL_INCLUDE_DIR})
 include_directories(${PROTOBUF_INCLUDE_DIR})
 include_directories(${LIBEVENT_INCLUDE_DIRS})
+include_directories(${BROTLI_INCLUDE_DIR})
+include_directories(${ICU_INCLUDE_DIR})
 include_directories(${QUIC_EXTRA_INC_DIR})
 include_directories(${CHROMIUM_SOURCE_DIR})
 
@@ -30,6 +32,7 @@ set(QUIC_CORE_PROTO_SOURCE_FILES
   net/third_party/quic/core/proto/cached_network_parameters.proto
   net/third_party/quic/core/proto/source_address_token.proto
   net/third_party/quic/core/proto/crypto_server_config.proto
+  net/nqe/proto/network_id_proto.proto
 )
 
 foreach(_SRC_FILE ${QUIC_CORE_PROTO_SOURCE_FILES})
@@ -72,6 +75,25 @@ configure_file(${CMAKE_SOURCE_DIR}/allocator_buildflags.h.inc
 
 configure_file(${CMAKE_SOURCE_DIR}/net_buildflags.h.inc
   ${QUIC_EXTRA_INC_DIR}/net/net_buildflags.h COPYONLY)
+
+add_custom_command(
+  OUTPUT "${QUIC_EXTRA_INC_DIR}/net/base/registry_controlled_domains/effective_tld_names-inc.cc"
+  COMMAND ${CMAKE_COMMAND} -E make_directory "${QUIC_EXTRA_INC_DIR}/net/base/registry_controlled_domains"
+  COMMAND ${CHROMIUM_SOURCE_DIR}/net/tools/dafsa/make_dafsa.py
+  ARGS
+    "${CHROMIUM_SOURCE_DIR}/net/base/registry_controlled_domains/effective_tld_names.gperf"
+    "${QUIC_EXTRA_INC_DIR}/net/base/registry_controlled_domains/effective_tld_names-inc.cc"
+  DEPENDS
+    ${CHROMIUM_SOURCE_DIR}/net/tools/dafsa/make_dafsa.py
+    "${CHROMIUM_SOURCE_DIR}/net/base/registry_controlled_domains/effective_tld_names.gperf"
+)
+
+include(AddFileDependencies)
+
+add_file_dependencies(
+  "${CHROMIUM_SOURCE_DIR}/net/base/registry_controlled_domains/registry_controlled_domain.cc"
+  "${QUIC_EXTRA_INC_DIR}/net/base/registry_controlled_domains/effective_tld_names-inc.cc"
+)
 
 find_package(Git)
 
@@ -146,19 +168,37 @@ if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
     base/time/time_exploded_posix.cc
     base/time/time_now_posix.cc
 
+    base/nix/xdg_util.cc
+
     crypto/nss_util.cc
     crypto/nss_key_util.cc
 
-    net/base/network_change_notifier_linux.cc
     net/base/address_tracker_linux.cc
+    net/base/net_errors_posix.cc
+    net/base/network_change_notifier_linux.cc
+    net/base/network_interfaces_linux.cc
     net/base/network_interfaces_posix.cc
+
+    net/cert/cert_verify_proc_nss.cc
+    net/cert/internal/trust_store_nss.cc
+    net/cert/known_roots_nss.cc
+    net/cert/x509_util_nss.cc
+
+    net/cert_net/nss_ocsp.cc
+
+    net/disk_cache/blockfile/file_posix.cc
+    net/disk_cache/blockfile/mapped_file_posix.cc
+    net/disk_cache/cache_util_posix.cc
+    net/disk_cache/simple/simple_index_file_posix.cc
+    net/disk_cache/simple/simple_util_posix.cc
 
     net/dns/dns_config_service_posix.cc
 
-    net/cert/cert_verify_proc_nss.cc
-    net/cert/x509_util_nss.cc
-
     net/proxy_resolution/proxy_config_service_linux.cc
+
+    net/socket/socket_posix.cc
+    net/socket/tcp_socket_posix.cc
+    net/socket/udp_socket_posix.cc
 
     net/http/http_auth_handler_ntlm_portable.cc
 
@@ -178,7 +218,13 @@ elseif(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
   set(CHROMIUM_BASE_ARCH_SOURCE_FILES)
 elseif(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
   set(CHROMIUM_BASE_ARCH_SOURCE_FILES
+    net/base/net_errors_win.cc
     net/base/network_interfaces_win.cc
+    net/cert/known_roots_win.cc
+    net/disk_cache/blockfile/file_win.cc
+    net/disk_cache/blockfile/mapped_file_win.cc
+    net/disk_cache/simple/simple_index_file_win.cc
+    net/disk_cache/simple/simple_util_win.cc
     net/dns/dns_config_service_win.cc
     net/http/http_auth_handler_ntlm_win.cc
   )
@@ -186,35 +232,37 @@ endif()
 
 set(CHROMIUM_BASE_SOURCE_FILES
   ${CHROMIUM_BASE_ARCH_SOURCE_FILES}
+  base/allocator/allocator_extension.cc
   base/at_exit.cc
   base/base64.cc
   base/base_switches.cc
+  base/build_time.cc
   base/callback_helpers.cc
   base/callback_internal.cc
-  base/logging.cc
-  base/md5.cc
-  base/rand_util.cc
-  base/values.cc
-  base/vlog.cc
-  base/allocator/allocator_extension.cc
-  base/build_time.cc
   base/command_line.cc
+  base/environment.cc
   base/feature_list.cc
   base/hash.cc
   base/lazy_instance_helpers.cc
   base/location.cc
+  base/logging.cc
+  base/md5.cc
   base/observer_list_threadsafe.cc
   base/pending_task.cc
   base/pickle.cc
+  base/rand_util.cc
   base/run_loop.cc
   base/sequence_checker_impl.cc
   base/sequence_token.cc
   base/sequenced_task_runner.cc
   base/sha1.cc
+  base/supports_user_data.cc
   base/sys_info.cc
   base/task_runner.cc
   base/unguessable_token.cc
   base/value_iterators.cc
+  base/values.cc
+  base/vlog.cc
 
   base/debug/activity_tracker.cc
   base/debug/alias.cc
@@ -233,6 +281,10 @@ set(CHROMIUM_BASE_SOURCE_FILES
   base/files/important_file_writer.cc
   base/files/memory_mapped_file.cc
   base/files/scoped_file.cc
+
+  base/i18n/case_conversion.cc
+  base/i18n/i18n_constants.cc
+  base/i18n/icu_string_conversions.cc
 
   base/json/json_parser.cc
   base/json/json_reader.cc
@@ -305,6 +357,9 @@ set(CHROMIUM_BASE_SOURCE_FILES
   base/message_loop/message_pump_libevent.cc
   base/message_loop/pending_task_queue.cc
 
+  base/power_monitor/power_monitor.cc
+  base/power_monitor/power_monitor_source.cc
+
   base/process/memory.cc
   base/process/process_handle.cc
   base/process/process_metrics.cc
@@ -362,12 +417,14 @@ set(CHROMIUM_BASE_SOURCE_FILES
   base/threading/thread_collision_warner.cc
   base/threading/thread_task_runner_handle.cc
 
+  base/time/clock.cc
   base/time/default_clock.cc
   base/time/default_tick_clock.cc
   base/time/tick_clock.cc
   base/time/time.cc
   base/time/time_to_iso8601.cc
 
+  base/timer/elapsed_timer.cc
   base/timer/timer.cc
 
   base/trace_event/heap_profiler_allocation_context_tracker.cc
@@ -409,7 +466,11 @@ set(QUIC_SOURCE_FILES
   net/base/address_list.cc
   net/base/arena.cc
   net/base/auth.cc
+  net/base/backoff_entry.cc
+  net/base/datagram_buffer.cc
+  net/base/elements_upload_data_stream.cc
   net/base/escape.cc
+  net/base/features.cc
   net/base/hash_value.cc
   net/base/hex_utils.cc
   net/base/host_mapping_rules.cc
@@ -418,48 +479,58 @@ set(QUIC_SOURCE_FILES
   net/base/ip_address.cc
   net/base/ip_endpoint.cc
   net/base/load_timing_info.cc
+  net/base/lookup_string_in_fixed_set.cc
   net/base/net_errors.cc
+  net/base/net_string_util_icu.cc
+  net/base/network_activity_monitor.cc
   net/base/network_change_notifier.cc
+  net/base/network_delegate.cc
   net/base/network_interfaces.cc
   net/base/parse_number.cc
   net/base/port_util.cc
+  net/base/prioritized_dispatcher.cc
+  net/base/prioritized_task_runner.cc
   net/base/proxy_server.cc
+  net/base/request_priority.cc
   net/base/sockaddr_storage.cc
+  net/base/trace_constants.cc
+  net/base/upload_bytes_element_reader.cc
   net/base/upload_data_stream.cc
+  net/base/upload_element_reader.cc
   net/base/url_util.cc
 
-  # net/base/registry_controlled_domains/registry_controlled_domain.cc
-
-  net/socket/client_socket_factory.cc
-  net/socket/client_socket_handle.cc
-  net/socket/client_socket_pool.cc
-  net/socket/client_socket_pool_base.cc
-  net/socket/client_socket_pool_manager.cc
-  net/socket/client_socket_pool_manager_impl.cc
-  net/socket/socket.cc
-  net/socket/socket_tag.cc
-  net/socket/socks5_client_socket.cc
-  net/socket/socks_client_socket.cc
-  net/socket/socks_client_socket_pool.cc
-  net/socket/ssl_client_socket_pool.cc
-  net/socket/stream_socket.cc
-  net/socket/transport_client_socket_pool.cc
-  net/socket/websocket_endpoint_lock_manager.cc
-  net/socket/websocket_transport_client_socket_pool.cc
-  net/socket/websocket_transport_connect_sub_job.cc
-  # net/socket/ssl_client_socket_impl.cc
-  net/socket/tcp_client_socket.cc
-  net/socket/udp_client_socket.cc
+  net/base/registry_controlled_domains/registry_controlled_domain.cc
 
   net/cert/asn1_util.cc
   net/cert/caching_cert_verifier.cc
   net/cert/cert_database.cc
+  net/cert/cert_status_flags.cc
   net/cert/cert_verifier.cc
   net/cert/cert_verify_proc.cc
   net/cert/cert_verify_result.cc
   net/cert/crl_set.cc
   net/cert/ct_verify_result.cc
   net/cert/ev_root_ca_metadata.cc
+  net/cert/internal/cert_error_id.cc
+  net/cert/internal/cert_error_params.cc
+  net/cert/internal/cert_errors.cc
+  net/cert/internal/certificate_policies.cc
+  net/cert/internal/common_cert_errors.cc
+  net/cert/internal/extended_key_usage.cc
+  net/cert/internal/general_names.cc
+  net/cert/internal/name_constraints.cc
+  net/cert/internal/ocsp.cc
+  net/cert/internal/parse_certificate.cc
+  net/cert/internal/parse_name.cc
+  net/cert/internal/parsed_certificate.cc
+  net/cert/internal/signature_algorithm.cc
+  net/cert/internal/system_trust_store.cc
+  net/cert/internal/trust_store.cc
+  net/cert/internal/trust_store.cc
+  net/cert/internal/trust_store_collection.cc
+  net/cert/internal/trust_store_in_memory.cc
+  net/cert/internal/verify_name_match.cc
+  net/cert/internal/verify_signed_data.cc
   net/cert/known_roots.cc
   net/cert/multi_threaded_cert_verifier.cc
   net/cert/ocsp_verify_result.cc
@@ -472,17 +543,13 @@ set(QUIC_SOURCE_FILES
   net/cert/x509_certificate_net_log_param.cc
   net/cert/x509_util.cc
 
-  net/cert/internal/cert_errors.cc
-  net/cert/internal/general_names.cc
-  net/cert/internal/parse_certificate.cc
-  net/cert/internal/parse_name.cc
-  net/cert/internal/signature_algorithm.cc
-
-  net/dns/dns_config.cc
-  net/dns/dns_config_service.cc
-  net/dns/dns_util.cc
-  net/dns/host_resolver.cc
-  net/dns/serial_worker.cc
+  net/cookies/canonical_cookie.cc
+  net/cookies/cookie_constants.cc
+  net/cookies/cookie_deletion_info.cc
+  net/cookies/cookie_options.cc
+  net/cookies/cookie_store.cc
+  net/cookies/cookie_util.cc
+  net/cookies/parsed_cookie.cc
 
   net/der/encode_values.cc
   net/der/input.cc
@@ -490,7 +557,57 @@ set(QUIC_SOURCE_FILES
   net/der/parser.cc
   net/der/tag.cc
 
+  net/disk_cache/backend_cleanup_tracker.cc
+  net/disk_cache/blockfile/addr.cc
+  net/disk_cache/blockfile/backend_impl.cc
+  net/disk_cache/blockfile/bitmap.cc
+  net/disk_cache/blockfile/block_files.cc
+  net/disk_cache/blockfile/disk_format.cc
+  net/disk_cache/blockfile/entry_impl.cc
+  net/disk_cache/blockfile/eviction.cc
+  net/disk_cache/blockfile/file.cc
+  net/disk_cache/blockfile/file_lock.cc
+  net/disk_cache/blockfile/in_flight_backend_io.cc
+  net/disk_cache/blockfile/in_flight_io.cc
+  net/disk_cache/blockfile/mapped_file.cc
+  net/disk_cache/blockfile/rankings.cc
+  net/disk_cache/blockfile/sparse_control.cc
+  net/disk_cache/blockfile/stats.cc
+  net/disk_cache/blockfile/trace.cc
+  net/disk_cache/blockfile/webfonts_histogram.cc
+  net/disk_cache/cache_util.cc
+  net/disk_cache/disk_cache.cc
+  net/disk_cache/memory/mem_backend_impl.cc
+  net/disk_cache/memory/mem_entry_impl.cc
+  net/disk_cache/net_log_parameters.cc
+  net/disk_cache/simple/simple_backend_impl.cc
+  net/disk_cache/simple/simple_entry_format.cc
+  net/disk_cache/simple/simple_entry_impl.cc
+  net/disk_cache/simple/simple_entry_operation.cc
+  net/disk_cache/simple/simple_file_tracker.cc
+  net/disk_cache/simple/simple_index.cc
+  net/disk_cache/simple/simple_index_file.cc
+  net/disk_cache/simple/simple_net_log_parameters.cc
+  net/disk_cache/simple/simple_synchronous_entry.cc
+  net/disk_cache/simple/simple_util.cc
+  net/disk_cache/simple/simple_version_upgrade.cc
+
+  net/dns/dns_config.cc
+  net/dns/dns_config_service.cc
+  net/dns/dns_hosts.cc
+  net/dns/dns_util.cc
+  net/dns/host_resolver.cc
+  # net/dns/host_resolver_impl.cc
+  net/dns/serial_worker.cc
+
   net/extras/preload_data/decoder.cc
+
+  net/filter/brotli_source_stream.cc
+  net/filter/filter_source_stream.cc
+  net/filter/gzip_header.cc
+  net/filter/gzip_source_stream.cc
+  net/filter/source_stream.cc
+  net/filter/zlib_stream_wrapper.cc
 
   net/http/bidirectional_stream.cc
   net/http/bidirectional_stream_impl.cc
@@ -501,15 +618,23 @@ set(QUIC_SOURCE_FILES
   net/http/http_auth_controller.cc
   net/http/http_auth_handler.cc
   net/http/http_auth_handler_basic.cc
+  net/http/http_auth_handler_digest.cc
   net/http/http_auth_handler_factory.cc
   net/http/http_auth_handler_ntlm.cc
   net/http/http_auth_scheme.cc
   net/http/http_basic_state.cc
   net/http/http_basic_stream.cc
   net/http/http_byte_range.cc
+  net/http/http_cache.cc
+  net/http/http_cache_lookup_manager.cc
+  net/http/http_cache_transaction.cc
+  net/http/http_cache_writers.cc
   net/http/http_chunked_decoder.cc
   net/http/http_log_util.cc
+  net/http/http_network_layer.cc
   net/http/http_network_session.cc
+  net/http/http_network_transaction.cc
+  net/http/http_proxy_client_socket.cc
   net/http/http_proxy_client_socket_pool.cc
   net/http/http_proxy_client_socket_wrapper.cc
   net/http/http_proxy_client_socket_wrapper.cc
@@ -519,6 +644,7 @@ set(QUIC_SOURCE_FILES
   net/http/http_response_body_drainer.cc
   net/http/http_response_headers.cc
   net/http/http_response_info.cc
+  net/http/http_security_headers.cc
   net/http/http_server_properties.cc
   net/http/http_stream_factory.cc
   net/http/http_stream_factory_job.cc
@@ -527,8 +653,10 @@ set(QUIC_SOURCE_FILES
   net/http/http_stream_request.cc
   net/http/http_util.cc
   net/http/http_vary_data.cc
+  net/http/partial_data.cc
   net/http/proxy_client_socket.cc
   net/http/proxy_connect_redirect_http_stream.cc
+  net/http/proxy_fallback.cc
   net/http/transport_security_state.cc
   net/http/transport_security_state_source.cc
 
@@ -537,6 +665,28 @@ set(QUIC_SOURCE_FILES
   net/log/net_log_entry.cc
   net/log/net_log_source.cc
   net/log/net_log_with_source.cc
+
+  net/nqe/cached_network_quality.cc
+  net/nqe/effective_connection_type.cc
+  net/nqe/event_creator.cc
+  net/nqe/network_id.cc
+  net/nqe/network_quality.cc
+  net/nqe/network_quality_estimator.cc
+  net/nqe/network_quality_estimator_params.cc
+  net/nqe/network_quality_estimator_util.cc
+  net/nqe/network_quality_observation.cc
+  net/nqe/network_quality_observation_source.cc
+  net/nqe/network_quality_store.cc
+  net/nqe/observation_buffer.cc
+  net/nqe/socket_watcher.cc
+  net/nqe/socket_watcher_factory.cc
+  net/nqe/throughput_analyzer.cc
+
+  net/ntlm/ntlm.cc
+  net/ntlm/ntlm_buffer_reader.cc
+  net/ntlm/ntlm_buffer_writer.cc
+  net/ntlm/ntlm_client.cc
+  net/ntlm/ntlm_constants.cc
 
   net/proxy_resolution/multi_threaded_proxy_resolver.cc
   net/proxy_resolution/pac_file_data.cc
@@ -549,6 +699,35 @@ set(QUIC_SOURCE_FILES
   net/proxy_resolution/proxy_list.cc
   net/proxy_resolution/proxy_resolution_service.cc
   net/proxy_resolution/proxy_resolver_factory.cc
+
+  net/socket/client_socket_factory.cc
+  net/socket/client_socket_handle.cc
+  net/socket/client_socket_pool.cc
+  net/socket/client_socket_pool_base.cc
+  net/socket/client_socket_pool_manager.cc
+  net/socket/client_socket_pool_manager_impl.cc
+  net/socket/next_proto.cc
+  net/socket/socket.cc
+  net/socket/socket_bio_adapter.cc
+  net/socket/socket_descriptor.cc
+  net/socket/socket_net_log_params.cc
+  net/socket/socket_options.cc
+  net/socket/socket_tag.cc
+  net/socket/socks5_client_socket.cc
+  net/socket/socks_client_socket.cc
+  net/socket/socks_client_socket_pool.cc
+  net/socket/ssl_client_socket.cc
+  net/socket/ssl_client_socket_impl.cc
+  net/socket/ssl_client_socket_pool.cc
+  net/socket/stream_socket.cc
+  net/socket/tcp_client_socket.cc
+  net/socket/transport_client_socket.cc
+  net/socket/transport_client_socket_pool.cc
+  net/socket/udp_client_socket.cc
+  net/socket/udp_net_log_parameters.cc
+  net/socket/websocket_endpoint_lock_manager.cc
+  net/socket/websocket_transport_client_socket_pool.cc
+  net/socket/websocket_transport_connect_sub_job.cc
 
   net/spdy/bidirectional_stream_spdy_impl.cc
   net/spdy/buffered_spdy_framer.cc
@@ -572,8 +751,11 @@ set(QUIC_SOURCE_FILES
 
   net/ssl/channel_id_service.cc
   net/ssl/channel_id_store.cc
+  net/ssl/openssl_ssl_util.cc
   net/ssl/ssl_cert_request_info.cc
+  net/ssl/ssl_cipher_suite_names.cc
   net/ssl/ssl_client_auth_cache.cc
+  net/ssl/ssl_client_session_cache.cc
   net/ssl/ssl_config.cc
   net/ssl/ssl_config_service.cc
   net/ssl/ssl_info.cc
@@ -601,6 +783,21 @@ set(QUIC_SOURCE_FILES
   net/quic/quic_session_key.cc
   net/quic/quic_stream_factory.cc
   net/quic/quic_utils_chromium.cc
+
+  net/url_request/redirect_info.cc
+  net/url_request/redirect_util.cc
+  net/url_request/url_request.cc
+  net/url_request/url_request_context.cc
+  net/url_request/url_request_error_job.cc
+  net/url_request/url_request_http_job.cc
+  net/url_request/url_request_job.cc
+  net/url_request/url_request_job_manager.cc
+  net/url_request/url_request_netlog_params.cc
+  net/url_request/url_request_redirect_job.cc
+  net/url_request/url_request_status.cc
+  net/url_request/url_request_throttler_entry.cc
+  net/url_request/url_request_throttler_manager.cc
+  net/url_request/websocket_handshake_userdata_key.cc
 
   net/third_party/http2/decoder/decode_buffer.cc
   net/third_party/http2/decoder/decode_http2_structures.cc
@@ -887,10 +1084,11 @@ add_library(quic SHARED
 )
 
 target_link_libraries(quic
+  ${ZLIB_STATIC_LIBRARIES}
   ${BORINGSSL_STATIC_LIBRARIES}
   ${PROTOBUF_STATIC_LIBRARIES}
   ${LIBEVENT_STATIC_LIBRARIES}
-  ${ZLIB_STATIC_LIBRARIES}
+  ${BROTLI_STATIC_LIBRARIES}
   ${ICU_STATIC_LIBRARIES}
   ${NSS_STATIC_LIBRARIES}
   ${CMAKE_THREAD_LIBS_INIT}
@@ -898,5 +1096,12 @@ target_link_libraries(quic
 )
 
 add_dependencies(quic
+  zlib
   gtest
+  boringssl
+  protobuf
+  libevent
+  brotli
+  icu
+  nss
 )
