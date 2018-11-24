@@ -117,6 +117,8 @@ add_custom_command(
 
 if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
   set(CHROMIUM_BASE_ARCH_SOURCE_FILES
+    base/base_paths_posix.cc
+
     base/debug/debugger_posix.cc
     base/debug/stack_trace_posix.cc
 
@@ -154,8 +156,8 @@ if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
     base/synchronization/lock_impl_posix.cc
     base/synchronization/waitable_event_posix.cc
 
-    base/sys_info_linux.cc
-    base/sys_info_posix.cc
+    base/system/sys_info_linux.cc
+    base/system/sys_info_posix.cc
 
     base/task/task_scheduler/task_tracker_posix.cc
 
@@ -202,16 +204,20 @@ if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 
     net/http/http_auth_handler_ntlm_portable.cc
 
+    base/third_party/xdg_user_dirs/xdg_user_dir_lookup.cc
+
     # ${CHROMIUM_SOURCE_DIR}/net/tools/epoll_server/epoll_server.cc
   )
 
-  add_definitions(-DUSE_NSS_CERTS=1)
+  add_definitions(-DMEMORY_TOOL_REPLACES_ALLOCATOR=1 -DUSE_NSS_CERTS=1)
 
   include(cmake/external/nss.cmake)
   include_directories(${NSS_INCLUDE_DIRS})
 
 elseif(${CMAKE_SYSTEM_NAME} MATCHES "Android")
-  set(CHROMIUM_BASE_ARCH_SOURCE_FILES)
+  set(CHROMIUM_BASE_ARCH_SOURCE_FILES
+    base/base_paths_android.cc
+  )
 elseif(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
   set(CHROMIUM_BASE_ARCH_SOURCE_FILES)
 elseif(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
@@ -232,10 +238,13 @@ endif()
 
 set(CHROMIUM_BASE_SOURCE_FILES
   ${CHROMIUM_BASE_ARCH_SOURCE_FILES}
+
   base/allocator/allocator_extension.cc
   base/at_exit.cc
   base/base64.cc
+  base/base_paths.cc
   base/base_switches.cc
+  base/big_endian.cc
   base/build_time.cc
   base/callback_helpers.cc
   base/callback_internal.cc
@@ -248,6 +257,7 @@ set(CHROMIUM_BASE_SOURCE_FILES
   base/logging.cc
   base/md5.cc
   base/observer_list_threadsafe.cc
+  base/path_service.cc
   base/pending_task.cc
   base/pickle.cc
   base/rand_util.cc
@@ -257,8 +267,8 @@ set(CHROMIUM_BASE_SOURCE_FILES
   base/sequenced_task_runner.cc
   base/sha1.cc
   base/supports_user_data.cc
-  base/sys_info.cc
   base/task_runner.cc
+  base/token.cc
   base/unguessable_token.cc
   base/value_iterators.cc
   base/values.cc
@@ -337,12 +347,15 @@ set(CHROMIUM_BASE_SOURCE_FILES
   base/synchronization/atomic_flag.cc
   base/synchronization/lock.cc
 
+  base/system/sys_info.cc
+
   base/third_party/dmg_fp/dtoa_wrapper.cc
   base/third_party/icu/icu_utf.cc
   base/third_party/dmg_fp/g_fmt.cc
   base/third_party/nspr/prtime.cc
   base/third_party/superfasthash/superfasthash.c
 
+  base/threading/platform_thread.cc
   base/threading/thread_checker_impl.cc
   base/threading/thread_id_name_manager.cc
   base/threading/thread_local_storage.cc
@@ -364,6 +377,7 @@ set(CHROMIUM_BASE_SOURCE_FILES
   base/process/process_handle.cc
   base/process/process_metrics.cc
 
+  base/task/common/operations_controller.cc
   base/task/post_task.cc
   base/task/scoped_set_task_priority_for_current_thread.cc
   base/task/task_executor.cc
@@ -493,7 +507,7 @@ set(QUIC_SOURCE_FILES
   net/base/proxy_server.cc
   net/base/request_priority.cc
   net/base/sockaddr_storage.cc
-  net/base/trace_constants.cc
+  # net/base/trace_constants.cc
   net/base/upload_bytes_element_reader.cc
   net/base/upload_data_stream.cc
   net/base/upload_element_reader.cc
@@ -593,12 +607,21 @@ set(QUIC_SOURCE_FILES
   net/disk_cache/simple/simple_version_upgrade.cc
 
   net/dns/dns_config.cc
+  net/dns/dns_config_overrides.cc
   net/dns/dns_config_service.cc
   net/dns/dns_hosts.cc
+  net/dns/dns_query.cc
+  net/dns/dns_reloader.cc
+  net/dns/dns_response.cc
   net/dns/dns_util.cc
+  net/dns/host_cache.cc
   net/dns/host_resolver.cc
-  # net/dns/host_resolver_impl.cc
+  net/dns/host_resolver_impl.cc
+  net/dns/host_resolver_mdns_task.cc
+  net/dns/host_resolver_proc.cc
+  net/dns/record_rdata.cc
   net/dns/serial_worker.cc
+  net/dns/public/dns_query_type.cc
 
   net/extras/preload_data/decoder.cc
 
@@ -607,7 +630,7 @@ set(QUIC_SOURCE_FILES
   net/filter/gzip_header.cc
   net/filter/gzip_source_stream.cc
   net/filter/source_stream.cc
-  net/filter/zlib_stream_wrapper.cc
+  # net/filter/zlib_stream_wrapper.cc
 
   net/http/bidirectional_stream.cc
   net/http/bidirectional_stream_impl.cc
@@ -841,6 +864,7 @@ set(QUIC_SOURCE_FILES
   net/third_party/http2/hpack/varint/hpack_varint_encoder.cc
   net/third_party/http2/http2_constants.cc
   net/third_party/http2/http2_structures.cc
+  net/third_party/http2/platform/impl/http2_flags_impl.cc
 
   net/third_party/quic/core/congestion_control/bandwidth_sampler.cc
   net/third_party/quic/core/congestion_control/bbr_sender.cc
@@ -990,6 +1014,7 @@ set(QUIC_SOURCE_FILES
   net/third_party/quic/platform/impl/quic_ip_address_impl.cc
   net/third_party/quic/platform/impl/quic_mem_slice_impl.cc
   net/third_party/quic/platform/impl/quic_mem_slice_span_impl.cc
+  net/third_party/quic/platform/impl/quic_mem_slice_storage_impl.cc
   net/third_party/quic/platform/impl/quic_mutex_impl.cc
   net/third_party/quic/platform/impl/quic_socket_address_impl.cc
 
@@ -1075,7 +1100,7 @@ set(LIBQUIC_SOURCE_FILES
 
 LIST_PREFIX(LIBQUIC_SOURCE_FILES ${CHROMIUM_SOURCE_DIR} ${LIBQUIC_SOURCE_FILES})
 
-add_definitions(-DUCHAR_TYPE=uint16_t)
+add_definitions(-DNO_TCMALLOC=1 -DUCHAR_TYPE=uint16_t)
 
 add_library(quic SHARED
   ${QUIC_EXTRA_INC_DIR}/base/generated_build_date.h

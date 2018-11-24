@@ -11,9 +11,10 @@ set(NSPR_SOURCE ${NSS_PREFIX}/src/nspr)
 
 set(_NSS_STATIC_LIBRARIES
   libpk11wrap.a
+  libnss_static.a
+  libpk11wrap.a
   libcertdb.a
   libnsspki.a
-  libnss_static.a
   libnssutil.a
   libcryptohi.a
   libnssdev.a
