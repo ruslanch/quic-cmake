@@ -1,5 +1,5 @@
 include(ExternalProject)
-include(cmake/utils.cmake)
+include(utils)
 
 add_custom_target(boringssl)
 

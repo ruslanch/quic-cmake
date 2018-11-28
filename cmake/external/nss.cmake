@@ -1,6 +1,6 @@
 
 include(ExternalProject)
-include(cmake/utils.cmake)
+include(utils)
 
 add_custom_target(nss)
 
@@ -9,14 +9,15 @@ set(NSS_DIST ${NSS_PREFIX}/src/dist)
 set(NSS_SOURCE ${NSS_PREFIX}/src/nss)
 set(NSPR_SOURCE ${NSS_PREFIX}/src/nspr)
 
+# WARNING: ordering is very important
 set(_NSS_STATIC_LIBRARIES
   libpk11wrap.a
   libnss_static.a
   libpk11wrap.a
   libcertdb.a
   libnsspki.a
-  libnssutil.a
   libcryptohi.a
+  libnssutil.a
   libnssdev.a
   libcerthi.a
   libnssb.a

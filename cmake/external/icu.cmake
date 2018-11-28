@@ -1,5 +1,5 @@
 include(ExternalProject)
-include(cmake/utils.cmake)
+include(utils)
 
 add_custom_target(icu)
 
@@ -11,14 +11,15 @@ set(ICU_INCLUDE_DIR ${ICU_INSTALL}/include)
 set(ICU_STATIC_LIBRARIES
   ${ICU_INSTALL}/lib/libicuuc.a
   ${ICU_INSTALL}/lib/libicuio.a
-  ${ICU_INSTALL}/lib/libicui18n.a
   ${ICU_INSTALL}/lib/libicudata.a
+  ${ICU_INSTALL}/lib/libicui18n.a
 )
 
 CHECK_ALL_EXISTS(ICU_FOUND
   ${ICU_STATIC_LIBRARIES}
   ${ICU_INCLUDE_DIR}/unicode
   ${QUIC_EXTRA_INC_ICU_COMMON_DIR}/unicode
+  ${QUIC_EXTRA_INC_ICU_COMMON_DIR}/../i18n/unicode
 )
 
 if(NOT ICU_FOUND)
@@ -61,10 +62,19 @@ if(NOT ICU_FOUND)
   )
 
   ExternalProject_Add_Step(
-    icu_external CopyExtraHeaders
+    icu_external CopyExtraHeaders1
     COMMAND ${CMAKE_COMMAND} -E copy_directory
       ${ICU_INCLUDE_DIR}/unicode
       ${QUIC_EXTRA_INC_ICU_COMMON_DIR}/unicode
+    DEPENDEES
+      install
+  )
+
+  ExternalProject_Add_Step(
+    icu_external CopyExtraHeaders2
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+      ${ICU_INCLUDE_DIR}/unicode
+      ${QUIC_EXTRA_INC_ICU_COMMON_DIR}/../i18n/unicode
     DEPENDEES
       install
   )
